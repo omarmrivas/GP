@@ -1,4 +1,4 @@
-﻿module GP_hol
+﻿module GPhol
 
 open System
 open Microsoft.FSharp.Quotations
