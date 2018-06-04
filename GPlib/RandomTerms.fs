@@ -1,5 +1,8 @@
 ﻿module RandomTerms
 
+open System
+open System.Numerics
+open RandomBigInteger
 open System.Collections.Generic
 open FSharp.Quotations.Evaluator
 open Microsoft.FSharp.Quotations
@@ -12,19 +15,19 @@ type term = Free of string * System.Type
 
 (* Counting of terms *)
 
-let type_cnt (env : (System.Type * int) list) A =
+let type_cnt (env : (System.Type * bigint) list) A =
     match List.tryFind (fun (typ, _) -> A.ToString() = typ.ToString()) env with
         | Some (_, c) -> c
-        | None -> 0
+        | None -> bigint 0
 
-let type_cnt_inc (env : (System.Type * int) list) A =
+let type_cnt_inc (env : (System.Type * bigint) list) A =
     env |> List.fold (fun (env,updated) (typ, c) ->
                                if A.ToString() = typ.ToString()
-                               then (env @ [(typ, c + 1)], true)
+                               then (env @ [(typ, c + bigint 1)], true)
                                else (env @ [(typ, c)], updated)) ([],false)
         |> (fun (env, updated) -> if updated 
                                   then env
-                                  else env @ [(A, 1)])
+                                  else env @ [(A, bigint 1)])
 
 let var_type A = 
     match strip_type A with
@@ -36,7 +39,7 @@ let arrow_type A =
         ([], _) -> false
         | _ -> true
 
-let valid_head_var_type_set (A:System.Type) (env : (System.Type * int) list) =
+let valid_head_var_type_set (A:System.Type) (env : (System.Type * bigint) list) =
     let rec check_head bis (typ:System.Type) =
             if typ.ToString() = A.ToString() then Some bis
             else try
@@ -66,49 +69,49 @@ let ndk n k =
     else sumatories [] index_elements
 
 let rec count_term A env s =
-    if s < 1 then 0
+    if s < 1 then bigint 0
     else if s = 1 then type_cnt env A
     else if var_type A then count_head_var_term A env s
     else (count_term (range_type A) (type_cnt_inc env (domain_type A)) (s - 1))
          + (count_head_var_term A env s)
 and count_head_var_term A env s =
-    List.fold (fun num_terms (bis, B) -> num_terms + count_head_var_arg_terms (bis, B) env s) 0 (valid_head_var_type_set A env)
+    List.fold (fun num_terms (bis, B) -> num_terms + count_head_var_arg_terms (bis, B) env s) (bigint 0) (valid_head_var_type_set A env)
 and count_head_var_arg_terms (bis, B) env s =
     let num_var_with_type_in_env = type_cnt env B
     let m = List.length bis
-    if num_var_with_type_in_env > 0
+    if num_var_with_type_in_env > bigint 0
     then num_var_with_type_in_env *
            (List.sumBy
               (fun Ss ->
-                  let multipl = if List.isEmpty Ss then 0
-                                else Ss |> List.fold (fun (m,i) si -> (m * (count_term (List.item i bis) env si), i + 1)) (1,0)
+                  let multipl = if List.isEmpty Ss then bigint 0
+                                else Ss |> List.fold (fun (m,i) si -> (m * (count_term (List.item i bis) env si), i + 1)) (bigint 1, 0)
                                         |> fst
                   multipl) (ndk (s - 1 - m) m))
-    else 0
+    else bigint 0
 
 let count_terms A s = count_term A [] s
 
 
 (* Random generation of terms *)
 
-let choose_arg_size (rnd : System.Random) (bis, B) env s num_arg_terms =
-      let rand_num = rnd.Next num_arg_terms
+let choose_arg_size (rnd : Random) (bis, B) env s num_arg_terms =
+      let rand_num = NextBigInteger rnd (BigInteger.Zero, num_arg_terms)
       let m = List.length bis
       let rec semi_fold num_terms L =
             match (num_terms, L) with
                 | (_, []) -> failwith "Should not be thrown"
                 | (num_terms, Ss :: list) ->
-                    let multipl = if List.isEmpty Ss then 0
-                                  else Ss |> List.fold (fun (m,i) si -> (m * (count_term (List.item i bis) env si), i + 1)) (1,0)
+                    let multipl = if List.isEmpty Ss then bigint 0
+                                  else Ss |> List.fold (fun (m,i) si -> (m * (count_term (List.item i bis) env si), i + 1)) (bigint 1,0)
                                           |> fst
                     let num_terms = num_terms + multipl
                     //considerar todos los Ss's que tengan a multipl > 0
                     if rand_num < num_terms then Ss
                     else semi_fold num_terms list
-      semi_fold 0 (ndk (s - 1 - m) m)
+      semi_fold (bigint 0) (ndk (s - 1 - m) m)
 
-let choose_head_var (rnd : System.Random) A env s num_app_terms =
-      let rand_num = rnd.Next num_app_terms
+let choose_head_var (rnd : Random) A env s num_app_terms =
+      let rand_num = NextBigInteger rnd (BigInteger.Zero, num_app_terms)
       let vset = valid_head_var_type_set A env
       let rec semi_fold num_terms L =
             match (num_terms, L) with
@@ -120,26 +123,24 @@ let choose_head_var (rnd : System.Random) A env s num_app_terms =
                     if rand_num < num_terms
                     then ((bis, B), choose_arg_size rnd (bis, B) env s (count_head_var / (type_cnt env B)))
                     else semi_fold num_terms list
-      semi_fold 0 (valid_head_var_type_set A env)
+      semi_fold (bigint 0) (valid_head_var_type_set A env)
 
-let gen_var_term (rnd : System.Random) A env =
+let gen_var_term (rnd : Random) A env =
       let tc = type_cnt env A
-      let rand_num = rnd.Next tc
-      if type_cnt env A = 0 then None
-//      else Some (Free ("x." + string rand_num, A))
+      let rand_num = NextBigInteger rnd (BigInteger.Zero, tc)
+      if tc = bigint 0 then None
       else Some (Free ("x." + string (List.findIndex (fun (ty,_) -> A.ToString() = ty.ToString()) env) + "." + string rand_num, A))
-//      else Some (Free ("x" + string (!c), A))
 
-let rec gen_term (rnd : System.Random) A env s =
+let rec gen_term (rnd : Random) A env s =
       if s < 1 then None
       else if s = 1 then
-        if type_cnt env A > 0 then gen_var_term rnd A env
+        if type_cnt env A > bigint 0 then gen_var_term rnd A env
         else None
       else if arrow_type A then
         let total_num_term = count_term A env s
         let num_lam_term = count_term (range_type A) (type_cnt_inc env (domain_type A)) (s - 1)
-        let rand_num = rnd.Next total_num_term
-        if total_num_term = 0 then None
+        let rand_num = NextBigInteger rnd (BigInteger.Zero, total_num_term)
+        if total_num_term = bigint 0 then None
            else if rand_num < num_lam_term
            then Some (gen_lam_term rnd (domain_type A) (range_type A) env s)
            else Some (gen_app_term rnd A env s (total_num_term - num_lam_term))
@@ -147,7 +148,7 @@ let rec gen_term (rnd : System.Random) A env s =
 and gen_lam_term (rnd : System.Random) arg_typ res_typ env s =
       let env = type_cnt_inc env arg_typ
       let name = "x." + string (List.findIndex (fun (ty,_) -> arg_typ.ToString() = ty.ToString()) env) + "." +
-                     string (type_cnt env arg_typ - 1)
+                     string (type_cnt env arg_typ - bigint 1)
       let body = gen_term rnd res_typ env (s - 1)
       Lam (name, arg_typ, Option.get body)
 and gen_app_term (rnd : System.Random) A env s num_app_terms =

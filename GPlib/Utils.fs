@@ -5,6 +5,7 @@ open System.Threading
 open System.Threading.Tasks
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
+open RandomBigInteger
 
 (* Generic utilities *)
 
@@ -67,6 +68,15 @@ let weightRnd_int (rnd : Random) (L : ('a * int) []) =
         if choosen < i then x
         else fld (indx + 1) L i
     fld 0 L 0
+
+let weightRnd_bigint (rnd : Random) (L : ('a * bigint) []) =
+    let choosen = NextBigInteger rnd (bigint.Zero, Array.sumBy (fun (_, w) -> w) L)
+    let rec fld indx (L : ('a * bigint) []) i =
+        let (x, w) = L.[indx]
+        let i = i + w
+        if choosen < i then x
+        else fld (indx + 1) L i
+    fld 0 L bigint.Zero
 
 let select_one (rnd : Random) i l =
     let prefix = List.take i l

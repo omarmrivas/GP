@@ -19,6 +19,7 @@ val subtract : ('a*'b -> bool) -> ('b list -> 'a list -> 'b list)
 val next_digit       : int list -> int list -> int list option
 val weightRnd_double : Random -> ('a*double)[] -> 'a
 val weightRnd_int    : Random -> ('a*int)[] -> 'a
+val weightRnd_bigint : Random -> ('a*bigint)[] -> 'a
 val select_one       : Random -> int -> 'a list -> ('a list * 'a * 'a list)
 
 (* Functions on types *)

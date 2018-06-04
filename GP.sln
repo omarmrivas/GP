@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "GP", "GP\GP.fsproj", "{C2023792-5BFA-454C-A58F-EBD4DDA7B7D5}"
 EndProject
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "GPlib", "GPlib\GPlib.fsproj", "{74DED853-CA19-4E5B-B50F-751C03EE95A9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -13,5 +15,9 @@ Global
 		{C2023792-5BFA-454C-A58F-EBD4DDA7B7D5}.Debug|x86.Build.0 = Debug|x86
 		{C2023792-5BFA-454C-A58F-EBD4DDA7B7D5}.Release|x86.ActiveCfg = Release|x86
 		{C2023792-5BFA-454C-A58F-EBD4DDA7B7D5}.Release|x86.Build.0 = Release|x86
+		{74DED853-CA19-4E5B-B50F-751C03EE95A9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{74DED853-CA19-4E5B-B50F-751C03EE95A9}.Debug|x86.Build.0 = Debug|Any CPU
+		{74DED853-CA19-4E5B-B50F-751C03EE95A9}.Release|x86.ActiveCfg = Release|Any CPU
+		{74DED853-CA19-4E5B-B50F-751C03EE95A9}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

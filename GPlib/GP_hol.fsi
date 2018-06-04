@@ -15,7 +15,7 @@ type gp_data =
      bests: int
      mutation_prob: float
      finish: float -> bool
-     term_count: (int * int) [] list
+     term_count: (int * bigint) [] list
      timeout : int
      rnds : System.Random []}
 

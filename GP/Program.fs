@@ -1,7 +1,6 @@
 ﻿// Learn more about F# at http://fsharp.org
 // See the 'F# Tutorial' project for more help.
 
-open FSharp.Quotations.Evaluator
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.DerivedPatterns
@@ -35,7 +34,7 @@ let scheme =
              and g x = match x with
                         Cero -> false
                       | Suc x -> N x Cero Suc f
-         fitness [| f; g |] @@>
+         fun () -> fitness [| f; g |] @@>
 
 [<EntryPoint>]
 let main argv =

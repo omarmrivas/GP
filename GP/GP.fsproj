@@ -44,17 +44,12 @@
     <Reference Include="FSharp.Quotations.Evaluator">
       <HintPath>..\packages\FSharp.Quotations.Evaluator.1.1.2\lib\net45\FSharp.Quotations.Evaluator.dll</HintPath>
     </Reference>
+    <Reference Include="GPlib">
+      <HintPath>..\GPlib\bin\Debug\GPlib.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Name.fsi" />
-    <Compile Include="Name.fs" />
-    <Compile Include="Utils.fsi" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="RandomTerms.fsi" />
-    <Compile Include="RandomTerms.fs" />
-    <Compile Include="GP_hol.fsi" />
-    <Compile Include="GP_hol.fs" />
     <Compile Include="Program.fs" />
     <None Include="packages.config" />
   </ItemGroup>

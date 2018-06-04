@@ -15,9 +15,14 @@ type gp_data =
      bests: int
      mutation_prob: float
      finish: float -> bool
-     term_count: (int * int) [] list
+     term_count: (int * bigint) [] list
      timeout : int
      rnds : System.Random []}
+
+type proto_individual =
+    {genome: Expr list
+     norm: Expr
+     fitness: unit -> float}
 
 type individual =
     {genome: Expr list
@@ -28,7 +33,7 @@ let get_gp_data term_size population_size generations bests mutation_prob finish
     let tcount (var:Var) = 
             [| 1 .. term_size |]
                 |> Array.Parallel.map (fun i -> (i, RandomTerms.count_terms var.Type i))
-                |> Array.filter (fun (_, c) -> c > 0)
+                |> Array.filter (fun (_, c) -> c > bigint.Zero)
                 |> (fun L -> printfn "Var: %A, counts: %A" var.Name L
                              L)
     let rnds = [| 1 .. population_size |]
@@ -46,22 +51,38 @@ let get_gp_data term_size population_size generations bests mutation_prob finish
      timeout = timeOut
      rnds = rnds}
 
-let mk_individual (data : gp_data) lams : individual =
+let mk_proto_individual (data : gp_data) lams : proto_individual =
     let norm = Expr.Applications(data.scheme, List.map List.singleton lams)
                 |> expand Map.empty
     {genome = lams
     // needs beta-eta contraction
      norm = norm
-     fitness = timeout data.timeout 0.0 (fun () -> norm.EvaluateUntyped() :?> float) ()}
+     fitness = timeout data.timeout (fun () -> 0.0) (fun () -> norm.EvaluateUntyped() :?> (unit -> float)) ()}
+
+let mk_individual (proto : proto_individual) : individual =
+    {genome = proto.genome
+    // needs beta-eta contraction
+     norm = proto.norm
+     fitness = proto.fitness ()}
+
+(*let mk_individual (data : gp_data) lams : individual =
+    let norm = Expr.Applications(data.scheme, List.map List.singleton lams)
+                |> expand Map.empty
+    {genome = lams
+    // needs beta-eta contraction
+     norm = norm
+     fitness = timeout data.timeout 0.0 (fun () -> norm.EvaluateUntyped() :?> float) ()}*)
+
 
 let initial_population (data : gp_data) =
     data.rnds 
         |> Array.Parallel.map (fun rnd -> 
                 data.vars |> List.map2 (fun count var -> (count, var)) data.term_count
                           |> List.choose (fun (count, var : Var) -> 
-                            count |> weightRnd_int rnd
-                                  |> RandomTerms.random_term rnd var.Type)
-                          |> mk_individual data)
+                            count |> weightRnd_bigint rnd
+                                  |> RandomTerms.random_term rnd var.Type))
+        |> Array.Parallel.map (mk_proto_individual data)
+        |> Array.Parallel.map mk_individual
 
 let mutation (rnd : System.Random) (data : gp_data) t =
     let (_, ty, q) =
@@ -75,8 +96,8 @@ let mutation (rnd : System.Random) (data : gp_data) t =
                             |> (fun typs -> typs ---> ty)
     let term_count = [|1 .. data.term_size|]
                         |> Array.map (fun i -> (i, RandomTerms.count_terms target_typ i))
-                        |> Array.filter (fun (_, c) -> c > 0)
-    let s = term_count |> weightRnd_int rnd
+                        |> Array.filter (fun (_, c) -> c > bigint.Zero)
+    let s = term_count |> weightRnd_bigint rnd
                        |> RandomTerms.random_term rnd target_typ
                        |> Option.get
                        |> (fun lam -> Expr.Applications(lam, List.map (List.singleton << Expr.Var) bounds))
@@ -142,8 +163,9 @@ let gp (data : gp_data) : individual option =
                                 let i2 = weightRnd_double rnd pool'
                                 let i = i2.genome |> Crossover rnd data i1.genome
                                                   |> Mutation rnd data
-                                                  |> mk_individual data
                                 i)
+                        |> Array.Parallel.map (mk_proto_individual data)
+                        |> Array.Parallel.map mk_individual
         Array.append bests rest
     let rec loop i pool =
         printfn "Generation: %i" i
