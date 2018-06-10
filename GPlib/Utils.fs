@@ -13,7 +13,7 @@ let tap f x = f x |> ignore
               x
 
 let pmap f xs =
-    xs |> Array.chunkBySize 12
+    xs |> Array.chunkBySize System.Environment.ProcessorCount
        |> Array.map (Array.Parallel.map f)
        |> Array.concat
 
