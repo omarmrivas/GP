@@ -1,10 +1,13 @@
 ﻿module GP_hol
 
+open System
 open FSharp.Quotations.Evaluator
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Utils
+
+type par_data = Random * (Type * (Type*bigint) list * int -> bigint)
 
 type gp_data =
     {scheme : Expr
@@ -17,7 +20,7 @@ type gp_data =
      finish: float -> bool
      term_count: (int * bigint) [] list
      timeout : int
-     rnds : System.Random []}
+     par_data : par_data []}
 
 type individual =
     {genome: Expr list

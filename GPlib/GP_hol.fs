@@ -1,10 +1,13 @@
 ﻿module GP_hol
 
+open System
 open FSharp.Quotations.Evaluator
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Quotations.DerivedPatterns
 open Utils
+
+type par_data = Random * (Type * (Type*bigint) list * int -> bigint)
 
 type gp_data =
     {scheme : Expr
@@ -17,7 +20,7 @@ type gp_data =
      finish: float -> bool
      term_count: (int * bigint) [] list
      timeout : int
-     rnds : System.Random []}
+     par_data : par_data []}
 
 type proto_individual =
     {genome: Expr list
@@ -29,15 +32,25 @@ type individual =
      norm: Expr
      fitness: float}
 
+let memoize fn =
+//  let cache = new System.Collections.Concurrent.ConcurrentDictionary<_,_>()
+  let cache = new System.Collections.Generic.Dictionary<_,_>()
+  (fun x ->
+    match cache.TryGetValue x with
+    | true, v -> v
+    | false, _ -> let v = fn (x)
+                  cache.[x] <- v
+                  v)
+
 let get_gp_data term_size population_size generations bests mutation_prob finish timeOut seed scheme =
     let tcount (var:Var) = 
             [| 1 .. term_size |]
-                |> Array.Parallel.map (fun i -> (i, RandomTerms.count_terms var.Type i))
+                |> Array.map (fun i -> (i, RandomTerms.count_terms var.Type i))
                 |> Array.filter (fun (_, c) -> c > bigint.Zero)
                 |> (fun L -> printfn "Var: %A, counts: %A" var.Name L
                              L)
-    let rnds = [| 1 .. population_size |]
-                    |> Array.map (fun i -> System.Random(i + seed))
+    let par_data = [| 1 .. population_size |]
+                        |> Array.map (fun i -> (System.Random(i + seed), memoize (fun (A,env,s) -> RandomTerms.count_term' A env s)))
     let vars = lambdas scheme
     {scheme = scheme
      vars = vars
@@ -49,7 +62,7 @@ let get_gp_data term_size population_size generations bests mutation_prob finish
      finish = finish
      term_count = List.map tcount vars
      timeout = timeOut
-     rnds = rnds}
+     par_data = par_data}
 
 let mk_proto_individual (data : gp_data) lams : proto_individual =
     let norm = Expr.Applications(data.scheme, List.map List.singleton lams)
@@ -73,18 +86,19 @@ let mk_individual (proto : proto_individual) : individual =
      norm = norm
      fitness = timeout data.timeout 0.0 (fun () -> norm.EvaluateUntyped() :?> float) ()}*)
 
-
 let initial_population (data : gp_data) =
-    data.rnds 
-        |> Array.Parallel.map (fun rnd -> 
+    data.par_data
+        |> pmap (fun (rnd,count_term) ->
                 data.vars |> List.map2 (fun count var -> (count, var)) data.term_count
+                          |> tap (fun _ -> printfn "Starting...")
                           |> List.choose (fun (count, var : Var) -> 
                             count |> weightRnd_bigint rnd
-                                  |> RandomTerms.random_term rnd var.Type))
-        |> Array.Parallel.map (mk_proto_individual data)
-        |> Array.Parallel.map mk_individual
+                                  |> RandomTerms.random_term (rnd,count_term) var.Type)
+                          |> tap (fun _ -> printfn "Done"))
+        |> pmap (mk_proto_individual data)
+        |> pmap mk_individual
 
-let mutation (rnd : System.Random) (data : gp_data) t =
+let mutation ((rnd,count_term) : par_data) (data : gp_data) t =
     let (_, ty, q) =
               t |> positions
                 |> List.map (fun p -> (p,1))
@@ -98,16 +112,16 @@ let mutation (rnd : System.Random) (data : gp_data) t =
                         |> Array.map (fun i -> (i, RandomTerms.count_terms target_typ i))
                         |> Array.filter (fun (_, c) -> c > bigint.Zero)
     let s = term_count |> weightRnd_bigint rnd
-                       |> RandomTerms.random_term rnd target_typ
+                       |> RandomTerms.random_term (rnd,count_term) target_typ
                        |> Option.get
                        |> (fun lam -> Expr.Applications(lam, List.map (List.singleton << Expr.Var) bounds))
     t |> substitute (s, q)
       |> expand Map.empty
 
-let Mutation (rnd : System.Random) (data : gp_data) i =
+let Mutation ((rnd,count_term) : par_data) (data : gp_data) i =
     if rnd.NextDouble() < data.mutation_prob
     then let (prefix, x, suffix) = select_one rnd (rnd.Next (List.length i)) i
-         prefix @ (mutation rnd data x :: suffix)
+         prefix @ (mutation (rnd,count_term) data x :: suffix)
     else i
 
 let crossover (rnd : System.Random) (data : gp_data) s t =
@@ -156,13 +170,13 @@ let gp (data : gp_data) : individual option =
         let pool = Array.sortBy (fun i -> -i.fitness) pool
         let bests = Array.take data.bests pool
         let pool' = Array.map (fun i -> (i, i.fitness)) pool
-        let rest = data.rnds
+        let rest = data.par_data
                         |> Array.take rest_size
-                        |> Array.Parallel.map (fun rnd ->
+                        |> Array.Parallel.map (fun (rnd,count_term) ->
                                 let i1 = weightRnd_double rnd pool'
                                 let i2 = weightRnd_double rnd pool'
                                 let i = i2.genome |> Crossover rnd data i1.genome
-                                                  |> Mutation rnd data
+                                                  |> Mutation (rnd,count_term) data
                                 i)
                         |> Array.Parallel.map (mk_proto_individual data)
                         |> Array.Parallel.map mk_individual

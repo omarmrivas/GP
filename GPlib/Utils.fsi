@@ -8,6 +8,11 @@ open Microsoft.FSharp.Quotations.Patterns
 
 (* Generic utilities *)
 
+val tap : ('a -> 'b) -> 'a -> 'a
+val pmap : ('a -> 'b) -> 'a [] -> 'b []
+
+//val memoize : ('a -> 'b) -> ('a -> 'b)
+
 // Not really useful as it would lead to stack overflows in
 // non-terminating function calls
 val timeout : int -> 'a -> ('b -> 'a) -> 'b -> 'a

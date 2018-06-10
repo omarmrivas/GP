@@ -9,6 +9,14 @@ open RandomBigInteger
 
 (* Generic utilities *)
 
+let tap f x = f x |> ignore
+              x
+
+let pmap f xs =
+    xs |> Array.chunkBySize 12
+       |> Array.map (Array.Parallel.map f)
+       |> Array.concat
+
 // Not really useful as it would lead to stack overflows in
 // non-terminating function calls
 let timeout time def f v =
@@ -51,13 +59,24 @@ let next_digit Ln L =
     |> (fun (foo, L) -> if foo then None
                         else Some L)
 
-let weightRnd_double (rnd : Random) (L : ('a * double) []) =
+(*let weightRnd_double (rnd : Random) (L : ('a * double) []) =
     let choosen = rnd.NextDouble() * Array.sumBy (fun (_, w) -> w) L
     let rec fld indx (L : ('a * double) []) i =
         let (x, w) = L.[indx]
         let i = i + w
         if choosen < i then x
         else fld (indx + 1) L i
+    fld 0 L 0.0*)
+
+let weightRnd_double (rnd : Random) (L : ('a * double) []) =
+    let choosen = rnd.NextDouble() * Array.sumBy (fun (_, w) -> w) L
+    let rec fld indx (L : ('a * double) []) i =
+        if indx < Array.length L
+        then let (x, w) = L.[indx]
+             let i = i + w
+             if choosen < i then x
+             else fld (indx + 1) L i
+        else fst L.[0]
     fld 0 L 0.0
 
 let weightRnd_int (rnd : Random) (L : ('a * int) []) =
@@ -70,7 +89,9 @@ let weightRnd_int (rnd : Random) (L : ('a * int) []) =
     fld 0 L 0
 
 let weightRnd_bigint (rnd : Random) (L : ('a * bigint) []) =
-    let choosen = NextBigInteger rnd (bigint.Zero, Array.sumBy (fun (_, w) -> w) L)
+//    let choosen = NextBigInteger rnd (bigint.Zero, Array.sumBy (fun (_, w) -> w) L)
+    let choosen = RandomIntegerBelow rnd (Array.sumBy (fun (_, w) -> w) L)
+
     let rec fld indx (L : ('a * bigint) []) i =
         let (x, w) = L.[indx]
         let i = i + w
